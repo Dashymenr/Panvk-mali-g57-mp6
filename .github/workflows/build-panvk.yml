@@ -1,4 +1,3 @@
-
 name: Build PanVK for Android
 
 on:
@@ -17,20 +16,20 @@ jobs:
           ref: 'main'
           depth: 1
 
-      - name: Install Dependencies
+      - name: Install Host Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y python3-pip ninja-build pkg-config bison flex python3-mako
 
       - name: Set up Android NDK
-        uses: nttld/setup-ndk@v3
+        uses: nttld/setup-ndk@v1
         with:
           ndk-version: r26b
           android-version: 30
 
       - name: Create Meson Cross File
         run: |
-          cat << EOF > android-cross.txt
+          cat << 'END_CROSS' > android-cross.txt
           [binaries]
           c = '${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang'
           cpp = '${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang++'
@@ -43,7 +42,7 @@ jobs:
           cpu_family = 'aarch64'
           cpu = 'armv8-a'
           endian = 'little'
-          EOF
+          END_CROSS
 
       - name: Configure Mesa with Meson
         run: |
