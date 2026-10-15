@@ -1,1 +1,69 @@
 
+name: Build PanVK for Android
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-mesa:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Mesa Source
+        uses: actions/checkout@v4
+        with:
+          repository: 'https://gitlab.freedesktop.org/mesa/mesa.git'
+          ref: 'main'
+          depth: 1
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pip ninja-build pkg-config bison flex python3-mako
+
+      - name: Set up Android NDK
+        uses: nttld/setup-ndk@v3
+        with:
+          ndk-version: r26b
+          android-version: 30
+
+      - name: Create Meson Cross File
+        run: |
+          cat << EOF > android-cross.txt
+          [binaries]
+          c = '${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang'
+          cpp = '${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang++'
+          ar = '${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar'
+          strip = '${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip'
+          pkgconfig = 'pkg-config'
+
+          [host_machine]
+          system = 'linux'
+          cpu_family = 'aarch64'
+          cpu = 'armv8-a'
+          endian = 'little'
+          EOF
+
+      - name: Configure Mesa with Meson
+        run: |
+          meson setup builddir \
+            --cross-file android-cross.txt \
+            --buildtype=release \
+            -Dplatforms=android \
+            -Dvulkan-drivers=panfrost \
+            -Dgallium-drivers= \
+            -Dgles1=disabled \
+            -Dgles2=disabled \
+            -Dopengl=false
+
+      - name: Compile Drivers
+        run: ninja -C builddir
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: panvk-android-libs
+          path: |
+            builddir/src/vulkan/panfrost/libvulkan_panfrost.so
+            builddir/src/vulkan/panfrost/panfrost_icd.aarch64.json
